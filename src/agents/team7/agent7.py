@@ -106,48 +106,6 @@ class Agent7(KartAgent):
 
 
 
-    def position_track_back(self, obs):
-        """
-        Analyse les noeuds en arrière et renvoie le vecteur (x, z) du point cible situé à une distance dynamique
-        La distance de visée (lookahead) augmente proportionnellement à la vitesse
-
-        Args:
-            obs (dict): Dictionnaire contenant les observations de l'environnement
-
-        Returns:
-            tuple: (target_vector[0], target_vector[2])
-                - target_vector[0] (float): Écart latéral (x) du point cible
-                - target_vector[2] (float): Distance arrière (z) du point cible
-        """
-        # La fonction analyse les noeuds devant et renvoie le vecteur (x, z) du point cible situé à une distance dynamique
-        paths = obs['paths_start']
-
-        if len(paths) == 0:
-            return 0, self.ahead_dist  # par défaut si aucun noeud n'est donné dans la liste paths_end
-
-        # On calcule la vitesse actuelle pour adapter la distance de visée.
-        speed = np.linalg.norm(obs['velocity'])
-
-        # Plus on va vite, plus on regarde loin
-        lookahead = self.ahead_dist + (speed * self.lookahead_factor)
-
-        # On plafonne la visée
-        lookahead = min(lookahead, self.lookahead_max)
-
-        target_vector = paths[-1]  # Par défaut on prend le noeud le plus loin pour éviter tout bug
-
-        # On cherche le premier point qui dépasse notre distance de visée calculée
-        for p in paths:
-            if p[2] < lookahead:
-                target_vector = p
-                break
-
-        # On retourne l'écart latéral x et l'écart avant z du point cible
-        return target_vector[0], target_vector[2]
-
-
-
-
     def manage_speed(self, obs, steering):
         
         """
@@ -179,11 +137,12 @@ class Agent7(KartAgent):
       
         
         self.counter += 1
+        target_x, target_z = self.position_track(obs)
+        steering = self.compute_turning(target_x, target_z)
+        accel, brake, steering = self.manage_speed(obs, steering)
 
         if self.counter > 200:
-            target_x, target_z = self.position_track_back(obs)
-            steering = self.compute_turning(target_x, target_z)
-            accel, brake, steering = self.manage_speed(obs, steering)
+            
 
             action = {
             "acceleration": accel,
@@ -195,14 +154,11 @@ class Agent7(KartAgent):
             "fire": False
         }
         else :
-            target_x, target_z = self.position_track(obs)
-            steering = self.compute_turning(target_x, target_z)
-            accel, brake, steering = self.manage_speed(obs, steering)
             
             action = {
-                "acceleration": accel,
-                "steer": steering,
-                "brake": brake,
+                "acceleration": 0.0,
+                "steer": -steering,
+                "brake": True,
                 "drift": False, 
                 "nitro": False, "rescue": False,
                 "fire": False

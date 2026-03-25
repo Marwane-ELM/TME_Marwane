@@ -16,7 +16,7 @@ path_lookahead : 3
 dist : 0.673833673012193
 
 # à quel point on ajuste la direction
-ajust : 0.6386812473361506
+ajust : 0.5
 
 
 #AgentSpeed

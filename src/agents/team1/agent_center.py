@@ -36,8 +36,12 @@ class AgentCenter(KartAgent):
         if (center[self.conf.z] > 20 and abs(obs["center_path_distance"]) < 3) : 
             steer = 0
         elif abs(center[self.conf.x]) > self.dist : 
-            steer += self.ajust * center[0]
-        action["steer"] = np.clip(steer, -1, 1)
+            steer -= self.ajust * center[0]
+
+
+        # Ici on inverse le steering de sorte à aller en marche arrière
+        action["steer"] = - np.clip(steer, -1, 1)
+        action["acceleration"] = 0.0
         return action
     
     def choose_action(self, obs):
@@ -50,10 +54,14 @@ class AgentCenter(KartAgent):
         Returns:
             dict: Dictionnaire d’action corrigé.
     """
+
+
+
+        # calculée grâce la fonction path_adjust()
         action = {
-            "acceleration": 0,
+            "acceleration": 0,  # On désactive l'accélération
             "steer": 0,
-            "brake": False,
+            "brake": True,   # Pour aller en marche arrière on met le brake à True et on inverse les commandes de steering
             "drift": False,
             "nitro": False,
             "rescue": False,
