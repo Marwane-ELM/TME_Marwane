@@ -77,6 +77,45 @@ class Agent7(KartAgent):
         # On retourne l'écart latéral x et l'écart avant z du point cible
         return target_vector[0], target_vector[2]
 
+    def position_track_back(self, obs):
+        """
+        Analyse les noeuds devant et renvoie le vecteur (x, z) du point cible situé à une distance dynamique
+        La distance de visée (lookahead) augmente proportionnellement à la vitesse
+
+        Args:
+            obs (dict): Dictionnaire contenant les observations de l'environnement
+
+        Returns:
+            tuple: (target_vector[0], target_vector[2])
+                - target_vector[0] (float): Écart latéral (x) du point cible
+                - target_vector[2] (float): Distance frontale (z) du point cible
+        """
+        # La fonction analyse les noeuds devant et renvoie le vecteur (x, z) du point cible situé à une distance dynamique
+        paths = obs['paths_start']
+
+        if len(paths) == 0:
+            return 0, self.ahead_dist  # par défaut si aucun noeud n'est donné dans la liste paths_end
+
+        # On calcule la vitesse actuelle pour adapter la distance de visée.
+        speed = np.linalg.norm(obs['velocity'])
+
+        # Plus on va vite, plus on regarde loin
+        lookahead = self.ahead_dist + (speed * self.lookahead_factor)
+
+        # On plafonne la visée
+        lookahead = min(lookahead, self.lookahead_max)
+
+        target_vector = paths[-1]  # Par défaut on prend le noeud le plus loin pour éviter tout bug
+
+        # On cherche le premier point qui dépasse notre distance de visée calculée
+        for p in paths:
+            if p[2] > lookahead:
+                target_vector = p
+                break
+
+        # On retourne l'écart latéral x et l'écart avant z du point cible
+        return target_vector[0], target_vector[2]
+
     def compute_turning(self, x, z):
         """
         Calcule l'angle du volant (steering) en fonction des distances (x, z)
@@ -141,20 +180,36 @@ class Agent7(KartAgent):
         steering = self.compute_turning(target_x, target_z)
         accel, brake, steering = self.manage_speed(obs, steering)
 
-        if self.counter > 200:
+        if self.counter < 200:
+            # si on est inférieur à 200 pas, alors on avance correctement
             
 
             action = {
             "acceleration": accel,
             "steer": steering,
-            "brake": brake,
+            "brake": False,
             "drift": False, 
             "nitro": False, 
-            "rescue": True,
+            "rescue": False,
             "fire": False
         }
-        else :
-            
+        elif 201 < self.counter < 250 :
+
+            # Après 250 pas et supérieur à 200 pas, alors on s'arrête
+            action = {
+                "acceleration": 0.0,
+                "steer": 0.0,
+                "brake": True,
+                "drift": False, 
+                "nitro": False, "rescue": False,
+                "fire": False
+            }
+
+        else:
+            target_x, target_z = self.position_track_back(obs)
+            steering = self.compute_turning(target_x, target_z)
+            accel, brake, steering = self.manage_speed(obs, steering)
+            self.counter = 2000 # on met le compteur à
             action = {
                 "acceleration": 0.0,
                 "steer": -steering,
